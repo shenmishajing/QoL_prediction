@@ -1,3 +1,9 @@
+## 1.1.0 (2025-07-21)
+
+### Feat
+
+- **model**: enhance XGBoost model with classification report and top feature plotting
+
 ## 1.0.0 (2025-07-18)
 
 ### Feat
