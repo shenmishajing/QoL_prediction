@@ -5,7 +5,12 @@ import joblib
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    f1_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
@@ -199,6 +204,7 @@ class QoLXGBoostModel:
         train_accuracy = accuracy_score(y, train_predictions)
         train_f1 = f1_score(y, train_predictions)
         train_auc = roc_auc_score(y, train_proba)
+        train_classification_report = classification_report(y, train_predictions)
 
         print("\nTraining Results:")
         print(f"Training Accuracy: {train_accuracy:.4f}")
@@ -225,6 +231,7 @@ class QoLXGBoostModel:
             "train_accuracy": train_accuracy,
             "train_f1": train_f1,
             "train_auc": train_auc,
+            "train_classification_report": train_classification_report,
             "feature_importance": feature_importance,
             "top_features": top_features,
             "model_params": self.model.get_params(),

@@ -3,9 +3,26 @@
 import json
 import warnings
 
+import matplotlib.pyplot as plt
+
 from project.model.xgboost import QoLXGBoostModel
 
 warnings.filterwarnings("ignore")
+
+
+def plot_top_features(top_features, save_path=None, title="Top 10 Feature Importances"):
+    """Plot a bar chart of the top features' importance."""
+    features = [f for f, _ in top_features]
+    importances = [float(i) for _, i in top_features]
+    plt.figure(figsize=(10, 6))
+    bars = plt.barh(features[::-1], importances[::-1], color="skyblue")
+    plt.xlabel("Importance")
+    plt.title(title)
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Top features plot saved to: {save_path}")
+    plt.show()
 
 
 def train_xgboost_model(
@@ -43,6 +60,7 @@ def train_xgboost_model(
         "train_accuracy": float(results["train_accuracy"]),
         "train_f1": float(results["train_f1"]),
         "train_auc": float(results["train_auc"]),
+        "train_classification_report": results["train_classification_report"],
         "n_features": int(results["n_features"]),
         "feature_columns": results["feature_columns"],
         "top_features": [
@@ -54,6 +72,10 @@ def train_xgboost_model(
         json.dump(simplified_results, f, indent=2)
 
     print(f"Training results saved to: {results_path}")
+
+    # Plot top features
+    plot_path = model_save_path.replace(".joblib", "_top_features.png")
+    plot_top_features(results["top_features"], save_path=plot_path)
 
     return model
 
