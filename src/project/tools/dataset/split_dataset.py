@@ -24,7 +24,7 @@ def split_dataset(
     data_path: str = "data/DataBase_Clean_Zhou_16JUL2025_AImodel.csv",
     test_size: float = 0.2,
     random_state: int = 42,
-    output_dir: str = "data",
+    output_dir: str = "data/QOL",
 ) -> Dict[str, Any]:
     """Split dataset into train and test sets with 4:1 ratio.
 
@@ -127,6 +127,56 @@ def get_feature_info(data_path: str) -> Dict[str, Any]:
     return feature_info
 
 
+def split_noqol_by_id(
+    noqol_path: str = "data/DataBase_Clean_Zhou_16JUL2025_NoQOL.csv",
+    id_json_path: str = "data/id.json",
+    output_dir: str = "data/NoQOL",
+) -> Dict[str, Any]:
+    """Split NoQOL dataset into train and test sets using IDs from id.json.
+
+    Args:
+        noqol_path: Path to the NoQOL CSV data file
+        id_json_path: Path to the id.json file containing train/test IDs
+        output_dir: Directory to save output files
+
+    Returns:
+        Dictionary containing split information and file paths
+    """
+    # Load NoQOL data
+    df = load_data(noqol_path)
+
+    # Load ID mapping
+    with open(id_json_path, "r") as f:
+        id_mapping = json.load(f)
+    train_ids = set(id_mapping["train_ids"])
+    test_ids = set(id_mapping["test_ids"])
+
+    # Split by ID
+    train_df = df[df["ID"].isin(train_ids)].copy()
+    test_df = df[df["ID"].isin(test_ids)].copy()
+
+    # Create output directory
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    # Save train and test datasets
+    train_path = f"{output_dir}/train_data.csv"
+    test_path = f"{output_dir}/test_data.csv"
+    train_df.to_csv(train_path, index=False)
+    test_df.to_csv(test_path, index=False)
+
+    print("NoQOL Data split completed:")
+    print(f"  Train set: {len(train_df)} samples")
+    print(f"  Test set: {len(test_df)} samples")
+    print(f"  Files saved to: {output_dir}/")
+
+    return {
+        "train_data": train_df,
+        "test_data": test_df,
+        "train_path": train_path,
+        "test_path": test_path,
+    }
+
+
 if __name__ == "__main__":
     # Example usage
     result = split_dataset()
@@ -135,3 +185,6 @@ if __name__ == "__main__":
     print("\nFeature Information:")
     print(f"Total features: {feature_info['total_features']}")
     print(f"Target distribution: {feature_info['target_distribution']}")
+
+    # Split NoQOL dataset using id.json
+    split_noqol_by_id()

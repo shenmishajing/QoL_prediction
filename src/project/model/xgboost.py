@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
@@ -6,12 +7,9 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import (
-    accuracy_score,
     classification_report,
-    f1_score,
     roc_auc_score,
 )
-from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 
@@ -150,11 +148,42 @@ class QoLXGBoostModel:
 
         return X, y
 
+    def evaluate(self, data_path: str = "data/test_data.csv") -> Dict[str, Any]:
+        """Evaluate the model on the test data.
+
+        Args:
+            data_path: Path to test data CSV
+        """
+        if not os.path.exists(data_path):
+            return {}
+
+        df = pd.read_csv(data_path)
+        X, y = self.preprocess_data(df, fit_encoders=False)
+        predictions = self.model.predict(X)
+        proba = self.model.predict_proba(X)[:, 1]
+
+        results = {
+            "auc": roc_auc_score(y, proba),
+            "classification_report": classification_report(
+                y, predictions, output_dict=True
+            ),
+            "feature_importance": sorted(
+                [
+                    [feature, float(importance)]
+                    for feature, importance in zip(
+                        self.feature_columns, self.model.feature_importances_
+                    )
+                ],
+                key=lambda x: x[1],
+                reverse=True,
+            ),
+        }
+
+        return results
+
     def train(
         self,
-        train_data_path: str = "data/train_data.csv",
-        validation_split: float = 0.2,
-        cv_folds: int = 5,
+        data_path: str = "data",
     ) -> Dict[str, Any]:
         """Train the XGBoost model.
 
@@ -167,7 +196,7 @@ class QoLXGBoostModel:
             Dictionary containing training results
         """
         # Load training data
-        train_df = pd.read_csv(train_data_path)
+        train_df = pd.read_csv(os.path.join(data_path, "train_data.csv"))
 
         print(f"Training data shape: {train_df.shape}")
         print(f"Target distribution: {train_df['OS benefits'].value_counts()}")
@@ -178,68 +207,14 @@ class QoLXGBoostModel:
         print(f"Preprocessed data shape: {X.shape}")
         print(f"Number of features: {len(self.feature_columns)}")
 
-        # Cross-validation
-        cv_scores = cross_val_score(
-            self.model,
-            X,
-            y,
-            cv=StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42),
-            scoring="accuracy",
-        )
-
-        print(f"Cross-validation scores: {cv_scores}")
-        print(
-            f"Mean CV accuracy: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})"
-        )
-
         # Train final model
         self.model.fit(X, y)
         self.is_fitted = True
 
-        # Training predictions for evaluation
-        train_predictions = self.model.predict(X)
-        train_proba = self.model.predict_proba(X)[:, 1]
-
-        # Calculate training metrics
-        train_accuracy = accuracy_score(y, train_predictions)
-        train_f1 = f1_score(y, train_predictions)
-        train_auc = roc_auc_score(y, train_proba)
-        train_classification_report = classification_report(y, train_predictions)
-
-        print("\nTraining Results:")
-        print(f"Training Accuracy: {train_accuracy:.4f}")
-        print(f"Training F1 Score: {train_f1:.4f}")
-        print(f"Training AUC: {train_auc:.4f}")
-
-        # Feature importance
-        feature_importance = dict(
-            zip(self.feature_columns, self.model.feature_importances_)
-        )
-        top_features = sorted(
-            feature_importance.items(), key=lambda x: x[1], reverse=True
-        )[:10]
-
-        print("\nTop 10 Important Features:")
-        for feature, importance in top_features:
-            print(f"  {feature}: {importance:.4f}")
-
-        # Prepare results
-        results = {
-            "cv_scores": cv_scores.tolist(),
-            "mean_cv_accuracy": cv_scores.mean(),
-            "cv_std": cv_scores.std(),
-            "train_accuracy": train_accuracy,
-            "train_f1": train_f1,
-            "train_auc": train_auc,
-            "train_classification_report": train_classification_report,
-            "feature_importance": feature_importance,
-            "top_features": top_features,
-            "model_params": self.model.get_params(),
-            "n_features": len(self.feature_columns),
-            "feature_columns": self.feature_columns,
+        return {
+            "train_results": self.evaluate(os.path.join(data_path, "train_data.csv")),
+            "test_results": self.evaluate(os.path.join(data_path, "test_data.csv")),
         }
-
-        return results
 
     def predict(self, data: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         """Make predictions on new data.
